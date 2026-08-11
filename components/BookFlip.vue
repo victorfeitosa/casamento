@@ -1,24 +1,21 @@
 <template>
   <div class="book-stage">
     <div ref="bookRef" class="book" @click="handleClick">
-      <!-- Base layer: always shows the resting page underneath the flipping leaf -->
+      <!-- Base layer: the resting page revealed as the leaf swings away -->
       <div class="page page-base">
         <img :src="pages[baseIndex]" :alt="`Page ${baseIndex + 1}`" draggable="false">
       </div>
 
-      <!-- Flipping leaf: rotates on the Y axis to reveal the base layer -->
+      <!-- Leaf: hinges on the left edge and only ever swings within a quarter
+           turn, so it's always edge-on or flatter — its back never comes into view. -->
       <div
+        ref="leafRef"
         class="page page-leaf"
         :class="{ 'no-transition': skipTransition }"
-        :style="leafStyle"
+        :style="{ transform: `rotateY(${rotation}deg)` }"
         @transitionend="onTransitionEnd"
       >
-        <div class="face face-front">
-          <img :src="pages[frontIndex]" :alt="`Page ${frontIndex + 1}`" draggable="false">
-        </div>
-        <div class="face face-back">
-          <img :src="pages[backIndex]" :alt="`Page ${backIndex + 1}`" draggable="false">
-        </div>
+        <img :src="pages[leafIndex]" :alt="`Page ${leafIndex + 1}`" draggable="false">
       </div>
 
       <!-- Click affordance hints -->
@@ -49,20 +46,19 @@ const isAnimating = ref(false)
 const skipTransition = ref(false)
 const rotation = ref(0)
 
-// The leaf shows `frontIndex` on its front face and `backIndex` on its back face.
-// `baseIndex` is the static page revealed once the leaf has rotated past 90deg.
-const frontIndex = ref(0)
-const backIndex = ref(1)
+// The leaf always hinges on the left edge and shows `leafIndex`. Going
+// forward it starts flat (0deg) and collapses to edge-on (-90deg),
+// revealing `baseIndex` underneath. Going back is the exact time-reverse:
+// the leaf starts edge-on already showing the previous page and unfurls
+// back to flat, covering the base layer up again.
+const leafIndex = ref(0)
 const baseIndex = ref(0)
+const direction = ref('next')
 
 const bookRef = ref(null)
+const leafRef = ref(null)
 
-// Pivot stays centered so the leaf's own rotation and its faces' pre-rotation
-// share the same axis point — an edge pivot would swing the rectangle fully
-// out of frame at 180deg instead of settling back into place.
-const leafStyle = computed(() => ({
-  transform: `rotateY(${rotation.value}deg)`
-}))
+let pendingIndex = 0
 
 function handleClick(event) {
   if (isAnimating.value || !bookRef.value) return
@@ -79,51 +75,65 @@ function goNext() {
   if (currentIndex.value >= pages.length - 1) return
   const next = currentIndex.value + 1
 
-  frontIndex.value = currentIndex.value
-  backIndex.value = next
-  baseIndex.value = next
-  rotation.value = 0
-
-  isAnimating.value = true
-  requestAnimationFrame(() => {
-    rotation.value = -180
-  })
-
+  direction.value = 'next'
   pendingIndex = next
+  isAnimating.value = true
+
+  leafIndex.value = currentIndex.value
+  baseIndex.value = next
+
+  requestAnimationFrame(() => {
+    rotation.value = -90
+  })
 }
 
 function goPrev() {
   if (currentIndex.value <= 0) return
   const prev = currentIndex.value - 1
 
-  frontIndex.value = currentIndex.value
-  backIndex.value = prev
-  baseIndex.value = prev
-  rotation.value = 0
-
-  isAnimating.value = true
-  requestAnimationFrame(() => {
-    rotation.value = 180
-  })
-
+  direction.value = 'prev'
   pendingIndex = prev
+  isAnimating.value = true
+
+  leafIndex.value = prev
+  baseIndex.value = currentIndex.value
+
+  // Snap the leaf to the collapsed pose instantly (matching what's already
+  // on screen — the base layer showing the current page) before animating
+  // it back open. Forcing a layout read between the two style changes
+  // stops the browser from tweening the snap itself.
+  skipTransition.value = true
+  rotation.value = -90
+  requestAnimationFrame(() => {
+    void leafRef.value?.offsetHeight
+    skipTransition.value = false
+    requestAnimationFrame(() => {
+      rotation.value = 0
+    })
+  })
 }
 
-let pendingIndex = 0
-
-function onTransitionEnd() {
-  if (!isAnimating.value) return
+function onTransitionEnd(event) {
+  if (event.propertyName !== 'transform' || !isAnimating.value) return
 
   currentIndex.value = pendingIndex
-  skipTransition.value = true
-  rotation.value = 0
-  frontIndex.value = currentIndex.value
-  backIndex.value = currentIndex.value
 
-  requestAnimationFrame(() => {
-    skipTransition.value = false
+  if (direction.value === 'next') {
+    // Leaf ended collapsed at -90deg. Snap it back to the flat resting
+    // pose showing the new current page, ready for the next flip.
+    skipTransition.value = true
+    rotation.value = 0
+    leafIndex.value = currentIndex.value
+    baseIndex.value = currentIndex.value
+    requestAnimationFrame(() => {
+      skipTransition.value = false
+      isAnimating.value = false
+    })
+  } else {
+    // Leaf ended flat at 0deg, already showing the new current page.
+    baseIndex.value = currentIndex.value
     isAnimating.value = false
-  })
+  }
 }
 </script>
 
@@ -167,29 +177,16 @@ function onTransitionEnd() {
 
 .page-leaf {
   z-index: 2;
-  transform-style: preserve-3d;
-  transition: transform 0.9s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  left: 0;
+  transform-origin: 0% 50%;
+  backface-visibility: hidden;
+  transition: transform 0.5s cubic-bezier(0.45, 0.05, 0.55, 0.95);
   will-change: transform;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.25);
 }
 
 .page-leaf.no-transition {
   transition: none;
-}
-
-.face {
-  position: absolute;
-  inset: 0;
-  backface-visibility: hidden;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.face-front {
-  transform: rotateY(0deg);
-}
-
-.face-back {
-  transform: rotateY(180deg);
 }
 
 .zone {
