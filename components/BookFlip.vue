@@ -120,12 +120,15 @@ function onTransitionEnd(event) {
 
   if (direction.value === 'next') {
     // Leaf ended collapsed at -90deg. Snap it back to the flat resting
-    // pose showing the new current page, ready for the next flip.
+    // pose showing the new current page, ready for the next flip. Forcing
+    // a layout read before re-enabling the transition stops the browser
+    // from coalescing the snap with the next change and animating it.
     skipTransition.value = true
     rotation.value = 0
     leafIndex.value = currentIndex.value
     baseIndex.value = currentIndex.value
     requestAnimationFrame(() => {
+      void leafRef.value?.offsetHeight
       skipTransition.value = false
       isAnimating.value = false
     })
