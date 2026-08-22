@@ -35,10 +35,13 @@
 </template>
 
 <script setup>
+const { app } = useRuntimeConfig()
+const withBase = (path) => app.baseURL.replace(/\/$/, '') + path
+
 const pages = [
-  '/images/page1.png',
-  '/images/page2.png',
-  '/images/page3.png'
+  withBase('/images/page1.png'),
+  withBase('/images/page2.png'),
+  withBase('/images/page3.png')
 ]
 
 const currentIndex = ref(0)

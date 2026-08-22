@@ -4,7 +4,7 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   ssr: true,
   app: {
-    baseURL: process.env.NUXT_APP_BASE_URL || '/invitation/',
+    baseURL: process.env.NUXT_APP_BASE_URL || '/casamento/',
     head: {
       title: 'Invitation',
       meta: [
