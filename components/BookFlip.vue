@@ -1,6 +1,6 @@
 <template>
   <div class="book-stage">
-    <div ref="bookRef" class="book" @click="handleClick">
+    <div ref="bookRef" class="book" @click="handleClick" @tap="handleClick" >
       <!-- Base layer: the resting page revealed as the leaf swings away -->
       <div class="page page-base">
         <img :src="pages[baseIndex]" :alt="`Page ${baseIndex + 1}`" draggable="false">
