@@ -153,7 +153,7 @@ function onTransitionEnd(event) {
 
 .book {
   position: relative;
-  width: min(80vw, 420px);
+  width: min(95˝vw, 420px);
   aspect-ratio: 5 / 7;
   perspective: 2000px;
   cursor: pointer;
